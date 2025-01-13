@@ -3,8 +3,9 @@ from sqlalchemy.sql import func
 
 db = SQLAlchemy()
 
+
 class User(db.Model):
-    __tablename__ = 'users'
+    __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(80), unique=True, nullable=False)
@@ -15,8 +16,9 @@ class User(db.Model):
     def __repr__(self):
         return f"User: {self.username}"
 
+
 class Decision(db.Model):
-    __tablename__ = 'decisions'
+    __tablename__ = "decisions"
     id = db.Column(db.String, primary_key=True)
     title = db.Column(db.String, nullable=True)
     formation = db.Column(db.String, nullable=True)
