@@ -62,3 +62,58 @@ def get_decision(id):
     # Serialize the decision using DecisionSchema
     decision_schema = DecisionSchema(only=("content",))
     return decision_schema.dump(decision)
+
+@decisions.get("/search")
+@decisions.response(200, DecisionSchema(many=True))
+@jwt_required()
+def search_decisions():
+    q = request.args.get('q', '').strip().lower()
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 5, type=int)
+    
+    if not q:
+        return jsonify({"data": []})
+    
+    search_terms = q.split()
+    
+    # Step 1: Query for relevant decisions
+    query = Decision.query.filter(
+        Decision.title.ilike(f"%{q}%") | 
+        Decision.content.ilike(f"%{q}%")
+    )
+    
+    decisions = query.all() 
+    
+    # Calculate relevance scores
+    data = []
+    for decision in decisions:
+        score = 0
+        title_tokens = decision.title.lower().split()
+        content_tokens = decision.content.lower().split()
+        
+        for term in search_terms:
+            score += title_tokens.count(term) * 2  # Weighted score for title matches
+            score += content_tokens.count(term)  # Lesser weight for content matches
+        
+        data.append({
+            'id': decision.id,
+            'title': decision.title,
+            'score': score
+        })
+    
+    data_sorted = sorted(data, key=lambda x: x['score'], reverse=True)
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated_data = data_sorted[start:end]
+    
+    meta = {
+        "page": page,
+        "pages": (len(data_sorted) + per_page - 1) // per_page,
+        "total_count": len(data_sorted),
+        "prev_page": page - 1 if page > 1 else None,
+        "next_page": page + 1 if end < len(data_sorted) else None,
+        'has_next': end < len(data_sorted),
+        "has_prev": start > 0
+    }
+    
+    return jsonify({"data": paginated_data, "meta": meta})
