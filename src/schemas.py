@@ -1,7 +1,7 @@
 from marshmallow import Schema, fields, validate
 
 class DecisionSchema(Schema):
-    id = fields.Integer(dump_only=True)
+    id = fields.String(dump_only=True)
     title = fields.String(required=True)
     formation = fields.String(required=True, validate=validate.Length(min=1, max=255))
     content = fields.String(required=True)

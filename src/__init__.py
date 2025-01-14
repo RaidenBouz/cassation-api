@@ -44,6 +44,8 @@ def create_app(test_config=None):
 
     
     from src.routes.auth import auth
+    from src.routes.decisions import decisions
     api.register_blueprint(auth)
+    api.register_blueprint(decisions)
 
     return app
