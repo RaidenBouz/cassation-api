@@ -1,6 +1,10 @@
 from flask import jsonify
-from flask_jwt_extended import (create_access_token, create_refresh_token,
-                                get_jwt_identity, jwt_required)
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    get_jwt_identity,
+    jwt_required,
+)
 from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -14,10 +18,11 @@ auth = Blueprint(
 
 
 @auth.post("/register")
-@auth.arguments(
-    UserSchema(only=("username", "email", "password"))
-)  # Validate input using Marshmallow
-@auth.response(201, UserSchema(exclude=("password",)))  # Exclude password in response
+@auth.arguments(UserSchema(only=("username", "email", "password")))
+@auth.response(
+    201,
+    example={"message": "string", "user": {"username": "string", "email": "string"}},
+)
 @auth.response(400, description="Invalid input (e.g., missing fields, short password)")
 @auth.response(409, description="Email or username already taken")
 def register(user_data):
@@ -53,7 +58,18 @@ def register(user_data):
 
 @auth.post("/login")
 @auth.arguments(UserSchema(only=("email", "password")))
-@auth.response(200, description="Login successful")
+@auth.response(
+    200,
+    example={
+        "user": {
+            "refresh": "string",
+            "access": "string",
+            "username": "string",
+            "email": "string",
+        }
+    },
+    description="Login successful",
+)
 @auth.response(400, description="Invalid input (e.g., missing fields)")
 @auth.response(401, description="Invalid email or password")
 def login(user_data):

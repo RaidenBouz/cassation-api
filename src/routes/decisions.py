@@ -1,28 +1,46 @@
 from flask import request
-from flask_smorest import Blueprint, abort
 from flask.json import jsonify
 from flask_jwt_extended import jwt_required
-from src.schemas import DecisionSchema
-from src.models import Decision
+from flask_smorest import Blueprint, abort
 
-decisions = Blueprint("decisions", __name__, url_prefix="/api/v1/decisions", description="Operations on decisions")
+from src.models import Decision
+from src.schemas import (DecisionSchema, FilteredPaginationSchema,
+                         SearchQuerySchema)
+
+decisions = Blueprint(
+    "decisions",
+    __name__,
+    url_prefix="/api/v1/decisions",
+    description="Operations on decisions",
+)
 
 
 @decisions.get("/")
-@decisions.response(200, DecisionSchema(many=True))
+@decisions.arguments(FilteredPaginationSchema, location="query")
+@decisions.response(
+    200,
+    DecisionSchema(exclude=("content",)),
+    description="A paginated list of decisions",
+)
+@decisions.response(401, description="Unauthorized - JWT token is missing or invalid")
 @jwt_required()
-def get_decisions():
+def get_decisions(args):
     """
     Get a paginated list of decisions.
     ---
     This endpoint returns a paginated list of decisions, optionally filtered by formation.
+    Query Parameters:
+      - formation: Filter decisions by formation (optional).
+      - page: Page number for pagination (default: 1).
+      - per_page: Number of decisions per page (default: 5).
     """
+    formation = args.get("formation")
+    page = int(args.get("page", 1))
+    per_page = int(request.args.get("per_page", 5))
 
-    formation = request.args.get("formation")
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 5, type=int)
-
-    query = Decision.query.with_entities(Decision.id, Decision.title, Decision.formation)
+    query = Decision.query.with_entities(
+        Decision.id, Decision.title, Decision.formation
+    )
     if formation:
         query = query.filter_by(formation=formation)
 
@@ -44,15 +62,19 @@ def get_decisions():
 
     return jsonify({"data": data, "meta": meta})
 
+
 @decisions.get("/<string:id>")
-@decisions.response(200, DecisionSchema())
+@decisions.response(200, example={"content": "string"})
 @decisions.response(404, description="Decision not found")
+@decisions.response(401, description="Unauthorized - JWT token is missing or invalid")
 @jwt_required()
 def get_decision(id):
     """
     Get a single decision's content by ID.
     ---
-    This endpoint returns a decision content by its ID.
+    This endpoint returns a decision's content by its ID.
+    Path Parameters:
+      - id: The unique identifier of the decision.
     """
     decision = Decision.query.filter_by(id=id).first()
 
@@ -63,57 +85,80 @@ def get_decision(id):
     decision_schema = DecisionSchema(only=("content",))
     return decision_schema.dump(decision)
 
+
 @decisions.get("/search")
-@decisions.response(200, DecisionSchema(many=True))
+@decisions.arguments(SearchQuerySchema, location="query")
+@decisions.response(
+    200,
+    example={
+        "id": "string",
+        "title": "string",
+        "score": "integer",
+        "content": "string",
+    },
+    description="A list of decisions matching the search query",
+)
+@decisions.response(401, description="Unauthorized - JWT token is missing or invalid")
 @jwt_required()
-def search_decisions():
-    q = request.args.get('q', '').strip().lower()
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 5, type=int)
-    
+def search_decisions(args):
+    """
+    Search decisions by title or content.
+    ---
+    This endpoint allows searching decisions by a query string. It searches both the title and content fields.
+    Query Parameters:
+      - q: The search query string.
+      - page: Page number for pagination (default: 1).
+      - per_page: Number of decisions per page (default: 5).
+    """
+    q = args.get("q", "").strip().lower()
+    page = int(args.get("page", 1))
+    per_page = int(args.get("per_page", 5))
+
     if not q:
         return jsonify({"data": []})
-    
+
     search_terms = q.split()
-    
-    # Step 1: Query for relevant decisions
+
     query = Decision.query.filter(
-        Decision.title.ilike(f"%{q}%") | 
-        Decision.content.ilike(f"%{q}%")
+        Decision.title.ilike(f"%{q}%") | Decision.content.ilike(f"%{q}%")
     )
-    
-    decisions = query.all() 
-    
+
+    decisions = query.all()
+
     # Calculate relevance scores
     data = []
     for decision in decisions:
         score = 0
         title_tokens = decision.title.lower().split()
         content_tokens = decision.content.lower().split()
-        
+
         for term in search_terms:
             score += title_tokens.count(term) * 2  # Weighted score for title matches
             score += content_tokens.count(term)  # Lesser weight for content matches
-        
-        data.append({
-            'id': decision.id,
-            'title': decision.title,
-            'score': score
-        })
-    
-    data_sorted = sorted(data, key=lambda x: x['score'], reverse=True)
+
+        data.append(
+            {
+                "id": decision.id,
+                "title": decision.title,
+                "content": decision.content,
+                "score": score,
+            }
+        )
+
+    data_sorted = sorted(data, key=lambda x: x["score"], reverse=True)
+    # manual pagination
     start = (page - 1) * per_page
     end = start + per_page
     paginated_data = data_sorted[start:end]
-    
+
     meta = {
         "page": page,
         "pages": (len(data_sorted) + per_page - 1) // per_page,
         "total_count": len(data_sorted),
         "prev_page": page - 1 if page > 1 else None,
         "next_page": page + 1 if end < len(data_sorted) else None,
-        'has_next': end < len(data_sorted),
-        "has_prev": start > 0
+        "has_next": end < len(data_sorted),
+        "has_prev": start > 0,
     }
-    
+
     return jsonify({"data": paginated_data, "meta": meta})
