@@ -1,5 +1,5 @@
 from flask import request
-from flask_smorest import Blueprint
+from flask_smorest import Blueprint, abort
 from flask.json import jsonify
 from flask_jwt_extended import jwt_required
 from src.schemas import DecisionSchema
@@ -43,3 +43,22 @@ def get_decisions():
     }
 
     return jsonify({"data": data, "meta": meta})
+
+@decisions.get("/<string:id>")
+@decisions.response(200, DecisionSchema())
+@decisions.response(404, description="Decision not found")
+@jwt_required()
+def get_decision(id):
+    """
+    Get a single decision's content by ID.
+    ---
+    This endpoint returns a decision content by its ID.
+    """
+    decision = Decision.query.filter_by(id=id).first()
+
+    if not decision:
+        abort(404, message="Decision not found")
+
+    # Serialize the decision using DecisionSchema
+    decision_schema = DecisionSchema(only=("content",))
+    return decision_schema.dump(decision)
