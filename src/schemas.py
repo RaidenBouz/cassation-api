@@ -13,6 +13,3 @@ class UserSchema(Schema):
     password = fields.String(required=True, validate=validate.Length(min=8), load_only=True)  # Prevents password from being serialized
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
-
-    class Meta:
-        fields = ("id", "username", "email", "created_at", "updated_at")  # Fields to include in serialization
