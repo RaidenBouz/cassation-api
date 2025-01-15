@@ -4,9 +4,13 @@ from unittest.mock import Mock
 
 from lxml import etree as ET
 
-from scripts.fetch_data import (clean_content, fetch_and_store_decisions,
-                                fetch_tar_urls, process_tar_file,
-                                save_decisions_to_db)
+from scripts.fetch_data import (
+    clean_content,
+    fetch_and_store_decisions,
+    fetch_tar_urls,
+    process_tar_file,
+    save_decisions_to_db,
+)
 from src.models import Decision, db
 
 
@@ -44,7 +48,6 @@ def test_clean_content():
 
     cleaned_content = clean_content(root)
 
-    y
     assert cleaned_content == "Hello \nWorld This is a test."
 
 
