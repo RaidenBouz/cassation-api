@@ -1,8 +1,12 @@
+import logging
+
 from src import create_app
 from src.models import db
+
+logging.basicConfig(level=logging.INFO)
 
 app = create_app()
 
 with app.app_context():
     db.create_all()
-    print("Database initialized!")
+    logging.info("Database initialized!")

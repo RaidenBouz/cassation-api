@@ -1,14 +1,17 @@
-import requests
+import logging
 import tarfile
+from urllib.parse import urljoin
+
+import requests
 from bs4 import BeautifulSoup
 from lxml import etree as ET
 from sqlalchemy.exc import SQLAlchemyError
-from src.models import Decision, db
+
 from src import create_app
-from urllib.parse import urljoin
-import logging
+from src.models import Decision, db
 
 logging.basicConfig(level=logging.INFO)
+
 
 def clean_content(content_elem):
     """Cleans and flattens XML content elements."""
@@ -22,12 +25,18 @@ def clean_content(content_elem):
             parts.append(elem.tail.strip())
     return " ".join(parts).replace("\n ", "\n").strip()
 
+
 def fetch_tar_urls(base_url):
     """Fetch .tar.gz URLs from the provided base URL."""
     response = requests.get(base_url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    tar_links = [a['href'] for a in soup.find_all('a', href=True) if a['href'].endswith('.tar.gz')]
+    soup = BeautifulSoup(response.content, "html.parser")
+    tar_links = [
+        a["href"]
+        for a in soup.find_all("a", href=True)
+        if a["href"].endswith(".tar.gz")
+    ]
     return [urljoin(base_url, link) for link in tar_links]
+
 
 def process_tar_file(tar_url, app):
     """Download and process a .tar.gz file containing decision XML files."""
@@ -70,10 +79,11 @@ def process_tar_file(tar_url, app):
                         }
                     )
 
-    # Save decisions to the database using the provided app context
+    # Save decisions to the database
     save_decisions_to_db(decisions, app)
 
     return decisions
+
 
 def save_decisions_to_db(decisions, app):
     """Save a list of decisions to the database, avoiding duplicates."""
@@ -81,8 +91,10 @@ def save_decisions_to_db(decisions, app):
         with app.app_context():
             # Avoid adding duplicate decisions
             existing_ids = set(row[0] for row in db.session.query(Decision.id).all())
-            new_decisions = [decision for decision in decisions if decision['id'] not in existing_ids]
-            
+            new_decisions = [
+                decision for decision in decisions if decision["id"] not in existing_ids
+            ]
+
             if new_decisions:
                 db.session.bulk_insert_mappings(Decision, new_decisions)
                 db.session.commit()
@@ -93,7 +105,7 @@ def save_decisions_to_db(decisions, app):
         logging.error(f"Database error: {e}")
         db.session.rollback()
 
-# your_script_module.py
+
 def fetch_and_store_decisions(base_url, app):
     """Fetch and process all decisions from the provided base URL."""
     tar_urls = fetch_tar_urls(base_url)
@@ -101,7 +113,8 @@ def fetch_and_store_decisions(base_url, app):
         logging.info(f"Processing {tar_url}")
         process_tar_file(tar_url, app)  # Pass the app object to process_tar_file
 
+
 if __name__ == "__main__":
-    BASE_URL = 'https://echanges.dila.gouv.fr/OPENDATA/CASS/'
-    app=create_app()
+    BASE_URL = "https://echanges.dila.gouv.fr/OPENDATA/CASS/"
+    app = create_app()
     fetch_and_store_decisions(BASE_URL, app)
