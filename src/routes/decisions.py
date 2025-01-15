@@ -65,25 +65,21 @@ def get_decisions(args):
 
 @decisions.get("/<string:id>")
 @decisions.response(200, example={"content": "string"})
-@decisions.response(404, description="Decision not found")
-@decisions.response(401, description="Unauthorized - JWT token is missing or invalid")
 @jwt_required()
 def get_decision(id):
     """
-    Get a single decision's content by ID.
-    ---
-    This endpoint returns a decision's content by its ID.
-    Path Parameters:
-      - id: The unique identifier of the decision.
+    Restore the original response structure.
     """
     decision = Decision.query.filter_by(id=id).first()
 
     if not decision:
-        abort(404, message="Decision not found")
+        return {"message": "Decision not found", "id": id}, 404
 
     # Serialize the decision using DecisionSchema
     decision_schema = DecisionSchema(only=("content",))
-    return decision_schema.dump(decision)
+    serialized_decision = decision_schema.dump(decision)
+
+    return serialized_decision, 200
 
 
 @decisions.get("/search")

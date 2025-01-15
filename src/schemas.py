@@ -14,8 +14,13 @@ class UserSchema(Schema):
     email = fields.String(required=True, validate=validate.Email())
     password = fields.String(
         required=True, validate=validate.Length(min=8), load_only=True
-    )  # Prevents password from being serialized
+    )
     created_at = fields.DateTime(dump_only=True)
+
+
+class UserLoginSchema(Schema):
+    email = fields.Str()
+    password = fields.Str()
 
 
 class PaginationSchema(Schema):
